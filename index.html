@@ -716,7 +716,15 @@ header {
     </div>
     <div class="header-right">
       <div class="date-display" id="dateDisplay">—</div>
-      <div class="live-badge"><div class="pulse-dot"></div> LIVE TIPS</div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div class="live-badge"><div class="pulse-dot"></div> LIVE TIPS</div>
+        <button onclick="showSettings()" title="API Key Settings" style="
+          background:rgba(245,200,66,0.07); border:1px solid rgba(245,200,66,0.2);
+          color:#f5c842; border-radius:4px; padding:6px 10px; cursor:pointer;
+          font-size:16px; line-height:1; transition:all 0.2s;"
+          onmouseover="this.style.background='rgba(245,200,66,0.15)'"
+          onmouseout="this.style.background='rgba(245,200,66,0.07)'">⚙️</button>
+      </div>
     </div>
   </header>
 
@@ -945,10 +953,25 @@ Rules:
 - 2-3 pros, 1-2 cons per tip
 - All picks should be clearly stated (e.g. "HOME WIN", "BTTS YES", "OVER 2.5 GOALS", "DRAW OR HOME", "AWAY -0.5")`;
 
+  // Check for API key
+  const apiKey = localStorage.getItem('tipster_api_key');
+  if (!apiKey) {
+    document.getElementById('loadingOverlay').classList.remove('active');
+    document.getElementById('refreshBtn').disabled = false;
+    document.getElementById('refreshIcon').classList.remove('spinning');
+    showApiKeyModal();
+    return;
+  }
+
   try {
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2500,
@@ -1087,5 +1110,101 @@ if (lastOpen && lastOpen !== todayKey) {
 }
 localStorage.setItem('tipster_last_open', todayKey);
 </script>
+
+<!-- ── API Key Modal ── -->
+<div id="apiKeyModal" style="
+  display:none; position:fixed; inset:0; z-index:99999;
+  background:rgba(0,0,0,0.85); backdrop-filter:blur(6px);
+  align-items:center; justify-content:center; padding:20px;">
+  <div style="
+    background:linear-gradient(135deg,#0e1c28,#08111a);
+    border:1px solid rgba(245,200,66,0.4);
+    border-radius:12px; padding:32px 28px;
+    max-width:420px; width:100%;
+    box-shadow:0 20px 60px rgba(0,0,0,0.7), 0 0 30px rgba(245,200,66,0.08);">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div style="font-size:40px; margin-bottom:12px;">⚽</div>
+      <div style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:28px; letter-spacing:4px; color:#f5c842; margin-bottom:6px;">TIPSTER SETUP</div>
+      <div style="font-family:'Share Tech Mono',monospace; font-size:11px; color:#7090a8; letter-spacing:1px;">One-time setup — stored only on your device</div>
+    </div>
+    <div style="background:rgba(245,200,66,0.06); border:1px solid rgba(245,200,66,0.15); border-radius:8px; padding:14px 16px; margin-bottom:20px;">
+      <div style="font-family:'Share Tech Mono',monospace; font-size:10px; color:#f5c842; letter-spacing:2px; margin-bottom:8px;">HOW TO GET YOUR FREE API KEY:</div>
+      <div style="font-size:13px; color:#9bb0c0; line-height:1.8;">
+        1. Go to <strong style="color:#f5c842;">console.anthropic.com</strong><br>
+        2. Sign up free (no credit card for free tier)<br>
+        3. Click <strong style="color:#f5c842;">API Keys</strong> → <strong style="color:#f5c842;">Create Key</strong><br>
+        4. Copy and paste it below
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:2px; color:#7090a8; display:block; margin-bottom:8px;">YOUR ANTHROPIC API KEY</label>
+      <input id="apiKeyInput" type="password"
+        placeholder="sk-ant-api03-..."
+        style="width:100%; background:#04080d; border:1px solid #1e3045; border-radius:6px;
+               padding:12px 16px; color:#d8eaf8; font-family:'Share Tech Mono',monospace;
+               font-size:13px; outline:none; transition:border-color 0.2s;"
+        onfocus="this.style.borderColor='#f5c842'"
+        onblur="this.style.borderColor='#1e3045'"
+      />
+    </div>
+    <div id="apiKeyError" style="display:none; font-family:'Share Tech Mono',monospace; font-size:11px; color:#ff4060; letter-spacing:1px; margin-bottom:12px; text-align:center;"></div>
+    <button onclick="saveApiKey()" style="
+      width:100%; padding:14px; background:#f5c842; color:#000;
+      border:none; border-radius:6px; font-family:'Barlow Condensed',sans-serif;
+      font-weight:800; font-size:18px; letter-spacing:4px; cursor:pointer;
+      transition:all 0.2s; margin-bottom:10px;"
+      onmouseover="this.style.background='#ffdb6b'"
+      onmouseout="this.style.background='#f5c842'">
+      SAVE &amp; LOAD TIPS
+    </button>
+    <div style="text-align:center; font-family:'Share Tech Mono',monospace; font-size:10px; color:#4a6880; line-height:1.6; letter-spacing:0.5px;">
+      🔒 Your key is saved only in your browser.<br>Never shared or sent anywhere except Anthropic.
+    </div>
+  </div>
+</div>
+
+<style>
+#apiKeyModal.show { display:flex !important; }
+</style>
+
+<script>
+function showApiKeyModal() {
+  document.getElementById('apiKeyModal').classList.add('show');
+  setTimeout(() => document.getElementById('apiKeyInput').focus(), 300);
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  const errEl = document.getElementById('apiKeyError');
+  if (!key) {
+    errEl.textContent = 'Please enter your API key';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!key.startsWith('sk-ant-')) {
+    errEl.textContent = 'Invalid key — should start with sk-ant-...';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  localStorage.setItem('tipster_api_key', key);
+  document.getElementById('apiKeyModal').classList.remove('show');
+  loadTips(true);
+}
+
+// Allow Enter key to submit
+document.getElementById('apiKeyInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveApiKey();
+});
+
+// Settings gear — lets users change their key
+function showSettings() {
+  const current = localStorage.getItem('tipster_api_key') || '';
+  document.getElementById('apiKeyInput').value = current;
+  document.getElementById('apiKeyError').style.display = 'none';
+  showApiKeyModal();
+}
+</script>
+
 </body>
 </html>
